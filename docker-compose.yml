@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────
+  tempops-db:
+    image: postgres:16-alpine
+    container_name: tempops-db
+    environment:
+      POSTGRES_DB: tempops
+      POSTGRES_USER: tempops_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tempops_dev_pass}
+    ports:
+      - "5433:5432"
+    volumes:
+      - tempops_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tempops_user -d tempops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tempops-net
+
+  # ── Redis: realtime Pub/Sub + lightweight cache ────────────────
+  tempops-redis:
+    image: redis:7-alpine
+    container_name: tempops-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - tempops-net
+
+  # ── RabbitMQ: async AI job queue for Celery workers ────────────
+  tempops-rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: tempops-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - tempops-net
+
+  # ── FastAPI Backend ────────────────────────────────────────────
+  tempops-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tempops-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://tempops_user:${POSTGRES_PASSWORD:-tempops_dev_pass}@tempops-db:5432/tempops
+      REDIS_URL: redis://tempops-redis:6379/0
+      CELERY_BROKER_URL: amqp://guest:guest@tempops-rabbitmq:5672//
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      HOST: "0.0.0.0"
+    ports:
+      - "8000:8000"
+    depends_on:
+      tempops-db:
+        condition: service_healthy
+      - tempops-redis
+      - tempops-rabbitmq
+    networks:
+      - tempops-net
+
+  # ── Next.js Frontend ───────────────────────────────────────────
+  tempops-web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tempops-web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - tempops-api
+    networks:
+      - tempops-net
+
+volumes:
+  tempops_pgdata:
+    name: tempops_pgdata
+
+networks:
+  tempops-net:
+    name: tempops-net
