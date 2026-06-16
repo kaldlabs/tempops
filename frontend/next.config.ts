@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   allowedDevOrigins: (process.env.NEXT_ALLOWED_DEV_ORIGINS || "localhost:3005,127.0.0.1:3005")
     .split(",")
     .map((origin) => origin.trim())
