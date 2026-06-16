@@ -52,7 +52,7 @@ async def get_db():
 async def init_db():
     """Create all tables (for dev/testing). Use Alembic in production."""
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
         await conn.execute(
             text(
                 """
