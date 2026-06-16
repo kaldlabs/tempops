@@ -17,6 +17,8 @@ if settings.is_sqlite:
     _engine_kwargs["echo"] = settings.DEBUG
 else:
     # PostgreSQL pool settings
+    # statement_cache_size=0 required for Supabase/PgBouncer in transaction mode
+    _engine_kwargs["connect_args"] = {"statement_cache_size": 0}
     _engine_kwargs["pool_size"] = 20
     _engine_kwargs["max_overflow"] = 10
     _engine_kwargs["pool_pre_ping"] = True
