@@ -5,6 +5,7 @@ Auto-detects SQLite vs PostgreSQL from DATABASE_URL.
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
@@ -16,12 +17,10 @@ if settings.is_sqlite:
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
     _engine_kwargs["echo"] = settings.DEBUG
 else:
-    # PostgreSQL pool settings
-    # statement_cache_size=0 required for Supabase/PgBouncer in transaction mode
+    # Supabase uses PgBouncer in transaction mode → must disable prepared statements
+    # and use NullPool so SQLAlchemy doesn't try to reuse connections across requests
     _engine_kwargs["connect_args"] = {"statement_cache_size": 0}
-    _engine_kwargs["pool_size"] = 20
-    _engine_kwargs["max_overflow"] = 10
-    _engine_kwargs["pool_pre_ping"] = True
+    _engine_kwargs["poolclass"] = NullPool
     _engine_kwargs["echo"] = settings.DEBUG
 
 engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
