@@ -21,6 +21,8 @@ class ApiError extends Error {
   }
 }
 
+import { supabase } from "./supabase";
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -43,6 +45,12 @@ async function request<T>(
     if (csrfToken) {
       headers["X-CSRF-Token"] = csrfToken;
     }
+  }
+  
+  // Get Supabase token
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
   }
 
   const res = await fetch(url, {

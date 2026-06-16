@@ -18,17 +18,33 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
-    Get the currently logged-in user from the HttpOnly access_token cookie.
-    Fails close (returns 401) on missing or invalid session.
+    Get the currently logged-in user from the Authorization header or access_token cookie.
+    If authenticated via Supabase for the first time, auto-creates the user record.
     """
-    token = request.cookies.get("access_token")
+    token = None
+    
+    # 1. Try Authorization header first (Supabase flow)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        
+    # 2. Fallback to HttpOnly cookie (legacy/local flow)
+    if not token:
+        token = request.cookies.get("access_token")
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated. Access token cookie missing.",
+            detail="Not authenticated. Missing token.",
         )
     
-    payload = verify_jwt_token(token, settings.resolved_secret_key)
+    # Try verifying with Supabase secret first, then local secret
+    payload = None
+    if settings.SUPABASE_JWT_SECRET:
+        payload = verify_jwt_token(token, settings.SUPABASE_JWT_SECRET)
+    if not payload:
+        payload = verify_jwt_token(token, settings.resolved_secret_key)
+
     if not payload or "sub" not in payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -40,10 +56,34 @@ async def get_current_user(
     user = result.scalars().first()
     
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User no longer exists.",
-        )
+        # Auto-create user from Supabase token
+        email = payload.get("email")
+        if email:
+            base_username = email.split("@")[0]
+            # Ensure unique username
+            import secrets
+            username = f"{base_username}_{secrets.token_hex(4)}"
+            
+            # Check if first user
+            stmt_count = select(User)
+            is_first_user = len((await db.execute(stmt_count)).scalars().all()) == 0
+            role = "admin" if is_first_user else "user"
+            
+            user = User(
+                id=user_id,
+                username=username,
+                email=email,
+                hashed_password="supabase-auth",
+                role=role
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found and no email in token to auto-create.",
+            )
     
     return user
 

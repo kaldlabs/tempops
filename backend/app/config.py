@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = ""
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
+    
+    # ── Supabase ───────────────────────────────────────────────────────
+    SUPABASE_JWT_SECRET: str = ""
 
     @cached_property
     def resolved_secret_key(self) -> str:
