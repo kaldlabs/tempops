@@ -135,10 +135,8 @@ async def google_login(request: Request):
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google Client ID not configured.")
     
-    redirect_uri = str(request.url_for("google_callback"))
-    # In production behind a proxy, ensure https
-    if "onrender.com" in redirect_uri or getattr(settings, "ENV", "") == "production":
-        redirect_uri = redirect_uri.replace("http://", "https://")
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    redirect_uri = f"{frontend_url}/api/v1/auth/google/callback"
 
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -161,10 +159,8 @@ async def google_callback(
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Google credentials not configured.")
 
-    redirect_uri = str(request.url_for("google_callback"))
-    # In production behind a proxy, ensure https
-    if "onrender.com" in redirect_uri or getattr(settings, "ENV", "") == "production":
-        redirect_uri = redirect_uri.replace("http://", "https://")
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    redirect_uri = f"{frontend_url}/api/v1/auth/google/callback"
     
     # 1. Exchange code for token
     token_url = "https://oauth2.googleapis.com/token"
@@ -239,13 +235,15 @@ async def google_callback(
     )
 
     csrf_token = secrets.token_hex(32)
-    is_secure = request.url.scheme == "https"
+    is_prod = getattr(settings, "ENV", "") == "production"
+    is_secure = request.url.scheme == "https" or is_prod
+    samesite_policy = "none" if is_prod else "lax"
 
     response.set_cookie(
-        key="access_token", value=jwt_token, httponly=True, secure=is_secure, samesite="lax", path="/", max_age=3600
+        key="access_token", value=jwt_token, httponly=True, secure=is_secure, samesite=samesite_policy, path="/", max_age=3600
     )
     response.set_cookie(
-        key="csrf_token", value=csrf_token, httponly=False, secure=is_secure, samesite="lax", path="/", max_age=3600
+        key="csrf_token", value=csrf_token, httponly=False, secure=is_secure, samesite=samesite_policy, path="/", max_age=3600
     )
 
     # Redirect to frontend
