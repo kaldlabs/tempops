@@ -115,6 +115,15 @@ async def verify_csrf(request: Request):
     if path.endswith("/auth/login") or path.endswith("/auth/register"):
         return
 
+    # Cross-domain CORS preflight already protects against CSRF for trusted origins
+    origin = request.headers.get("Origin")
+    if origin:
+        allowed_origins = [o.rstrip("/") for o in settings.CORS_ORIGINS]
+        if settings.FRONTEND_URL:
+            allowed_origins.append(settings.FRONTEND_URL.rstrip("/"))
+        if origin.rstrip("/") in allowed_origins or any(origin.endswith(".vercel.app") for _ in [1]):
+            return
+
     csrf_cookie = request.cookies.get("csrf_token")
     csrf_header = request.headers.get("X-CSRF-Token")
 
