@@ -261,10 +261,12 @@ async def google_callback(
 @router.post("/logout")
 async def logout(response: Response, request: Request):
     """Invalidate session by clearing cookies."""
-    is_secure = request.url.scheme == "https"
+    is_prod = getattr(settings, "ENV", "") == "production" or "onrender.com" in str(request.base_url) or "vercel.app" in getattr(settings, "FRONTEND_URL", "")
+    is_secure = request.url.scheme == "https" or is_prod
+    samesite_policy = "none" if is_prod else "lax"
     
-    response.delete_cookie(key="access_token", path="/", secure=is_secure, samesite="lax")
-    response.delete_cookie(key="csrf_token", path="/", secure=is_secure, samesite="lax")
+    response.delete_cookie(key="access_token", path="/", secure=is_secure, samesite=samesite_policy)
+    response.delete_cookie(key="csrf_token", path="/", secure=is_secure, samesite=samesite_policy)
     return {"status": "success", "message": "Logged out successfully."}
 
 @router.get("/me", response_model=CurrentUserResponse)
