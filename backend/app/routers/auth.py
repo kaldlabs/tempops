@@ -135,8 +135,11 @@ async def google_login(request: Request):
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google Client ID not configured.")
     
-    frontend_url = settings.FRONTEND_URL.rstrip("/")
-    redirect_uri = f"{frontend_url}/api/v1/auth/google/callback"
+    base_url = str(request.base_url).rstrip("/")
+    # Force HTTPS for Render
+    if "onrender.com" in base_url:
+        base_url = base_url.replace("http://", "https://")
+    redirect_uri = f"{base_url}/api/v1/auth/google/callback"
 
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -159,8 +162,11 @@ async def google_callback(
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Google credentials not configured.")
 
-    frontend_url = settings.FRONTEND_URL.rstrip("/")
-    redirect_uri = f"{frontend_url}/api/v1/auth/google/callback"
+    base_url = str(request.base_url).rstrip("/")
+    # Force HTTPS for Render
+    if "onrender.com" in base_url:
+        base_url = base_url.replace("http://", "https://")
+    redirect_uri = f"{base_url}/api/v1/auth/google/callback"
     
     # 1. Exchange code for token
     token_url = "https://oauth2.googleapis.com/token"
