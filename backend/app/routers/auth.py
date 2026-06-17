@@ -98,7 +98,9 @@ async def login(
     csrf_token = secrets.token_hex(32)
 
     # Detect if we should use secure cookie (HTTPS only, except localhost /Tailscale dev might be HTTP)
-    is_secure = request.url.scheme == "https"
+    is_prod = getattr(settings, "ENV", "") == "production" or "onrender.com" in str(request.base_url) or "vercel.app" in getattr(settings, "FRONTEND_URL", "")
+    is_secure = request.url.scheme == "https" or is_prod
+    samesite_policy = "none" if is_prod else "lax"
 
     # Set access token cookie (HttpOnly)
     response.set_cookie(
@@ -106,7 +108,7 @@ async def login(
         value=access_token,
         httponly=True,
         secure=is_secure,
-        samesite="lax",
+        samesite=samesite_policy,
         path="/",
         max_age=3600
     )
@@ -117,7 +119,7 @@ async def login(
         value=csrf_token,
         httponly=False,
         secure=is_secure,
-        samesite="lax",
+        samesite=samesite_policy,
         path="/",
         max_age=3600
     )
@@ -241,7 +243,7 @@ async def google_callback(
     )
 
     csrf_token = secrets.token_hex(32)
-    is_prod = getattr(settings, "ENV", "") == "production"
+    is_prod = getattr(settings, "ENV", "") == "production" or "onrender.com" in str(request.base_url) or "vercel.app" in getattr(settings, "FRONTEND_URL", "")
     is_secure = request.url.scheme == "https" or is_prod
     samesite_policy = "none" if is_prod else "lax"
 
