@@ -130,12 +130,16 @@ async def login(
     }}
 
 @router.get("/google/login")
-async def google_login():
+async def google_login(request: Request):
     """Redirects to Google OAuth2 consent screen."""
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google Client ID not configured.")
     
-    redirect_uri = f"http://{settings.HOST}:{settings.PORT}/api/v1/auth/google/callback"
+    redirect_uri = str(request.url_for("google_callback"))
+    # In production behind a proxy, ensure https
+    if "onrender.com" in redirect_uri or settings.ENV == "production":
+        redirect_uri = redirect_uri.replace("http://", "https://")
+
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={settings.GOOGLE_CLIENT_ID}"
@@ -157,7 +161,10 @@ async def google_callback(
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Google credentials not configured.")
 
-    redirect_uri = f"http://{settings.HOST}:{settings.PORT}/api/v1/auth/google/callback"
+    redirect_uri = str(request.url_for("google_callback"))
+    # In production behind a proxy, ensure https
+    if "onrender.com" in redirect_uri or settings.ENV == "production":
+        redirect_uri = redirect_uri.replace("http://", "https://")
     
     # 1. Exchange code for token
     token_url = "https://oauth2.googleapis.com/token"
