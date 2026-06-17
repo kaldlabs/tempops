@@ -137,7 +137,7 @@ async def google_login(request: Request):
     
     redirect_uri = str(request.url_for("google_callback"))
     # In production behind a proxy, ensure https
-    if "onrender.com" in redirect_uri or settings.ENV == "production":
+    if "onrender.com" in redirect_uri or getattr(settings, "ENV", "") == "production":
         redirect_uri = redirect_uri.replace("http://", "https://")
 
     auth_url = (
@@ -163,7 +163,7 @@ async def google_callback(
 
     redirect_uri = str(request.url_for("google_callback"))
     # In production behind a proxy, ensure https
-    if "onrender.com" in redirect_uri or settings.ENV == "production":
+    if "onrender.com" in redirect_uri or getattr(settings, "ENV", "") == "production":
         redirect_uri = redirect_uri.replace("http://", "https://")
     
     # 1. Exchange code for token
