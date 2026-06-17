@@ -57,9 +57,14 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── CORS ───────────────────────────────────────────────────────────────
+# Ensure FRONTEND_URL is explicitly allowed for cross-domain CORS preflight
+allowed_origins = list(settings.CORS_ORIGINS)
+if settings.FRONTEND_URL and settings.FRONTEND_URL not in allowed_origins:
+    allowed_origins.append(settings.FRONTEND_URL.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
